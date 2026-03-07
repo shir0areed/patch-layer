@@ -77,14 +77,6 @@ class SessionFolder:
                 commit_hash = self._git("rev-parse", "HEAD").stdout.strip()
                 self.layer_commits.append(commit_hash)
 
-            # 4. Pn−1 を base_commit として保持（なければ return_point）
-            if len(self.layer_commits) >= 2:
-                self.base_commit = self.layer_commits[-2]
-            elif self.layer_commits:
-                self.base_commit = self.return_point
-            else:
-                self.base_commit = self.return_point
-
         except Exception:
             # どこで失敗しても、積まれている undo だけを逆順に実行
             self._rollback()
@@ -98,9 +90,15 @@ class SessionFolder:
         return self.repo_root
 
     def diff_from_last_layer(self) -> str:
-        base = self.base_commit or self.return_point
+        base = self._compute_base_commit()
         r = self._git("diff", base)
         return r.stdout
+
+    def _compute_base_commit(self) -> str:
+        if len(self.layer_commits) >= 2:
+            return self.layer_commits[-2]
+        else:
+            return self.return_point
 
     # ----------------------------------------
     # セッション終了（RAII: 明示的破棄）
