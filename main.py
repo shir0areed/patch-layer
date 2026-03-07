@@ -4,16 +4,7 @@ This is a minimal PySide-based UI with no business logic.
 """
 
 import sys
-
-try:
-    from PySide6 import QtWidgets, QtCore
-except ImportError:
-    try:
-        from PySide2 import QtWidgets, QtCore
-    except ImportError:
-        QtWidgets = None
-        QtCore = None
-
+from PySide6 import QtWidgets, QtCore
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -52,10 +43,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
-    if QtWidgets is None:
-        print("PySide6 or PySide2 is required to run this UI. Install it via `pip install PySide6`.")
-        sys.exit(1)
-
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
     w.show()
