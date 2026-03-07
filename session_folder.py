@@ -1,6 +1,7 @@
 # session_folder.py
 import subprocess
 from pathlib import Path
+from typing import Callable, List
 
 
 class SessionFolder:
@@ -15,42 +16,79 @@ class SessionFolder:
         self.original_ref = self._git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         self.original_commit = self._git("rev-parse", "HEAD").stdout.strip()
 
-        # ----------------------------------------
-        # セッション開始（RAII: forward path）
-        # ----------------------------------------
+        # 「レイヤー破棄後に戻るべきコミット」
+        self.return_point = self.original_commit
 
-        # 1. detached HEAD に移行
-        self._git("checkout", "--detach", "HEAD")
-
-        # 2. dirty があれば snapshot commit を作る（A）
-        if self._has_dirty():
-            self._git("add", "-A")
-            self._git("commit", "-m", "session-snapshot")
-            self.return_point = self._git("rev-parse", "HEAD").stdout.strip()
-        else:
-            # dirty がなければ original_commit が戻り先
-            self.return_point = self.original_commit
-
-        # 3. レイヤー適用（P1, P2, …, Pn）
+        # レイヤー適用コミット（P1, P2, …, Pn）
         self.layer_commits: list[str] = []
-        abs_layers = [(self.catalog_dir / p).resolve() for p in layer_relpaths]
+        self.base_commit: str | None = None
 
-        for abs_layer in abs_layers:
-            r = self._git("apply", str(abs_layer))
+        # RAII 用 undo スタック
+        self._undo_stack: List[Callable[[], None]] = []
+
+        # ----------------------------------------
+        # セッション開始（RAII）
+        # ----------------------------------------
+        try:
+            # 1. detached HEAD に移行
+            r = self._git("checkout", "--detach", "HEAD")
             if r.returncode != 0:
-                raise RuntimeError(f"Failed to apply layer: {abs_layer}\n{r.stderr}")
+                raise RuntimeError(f"Failed to detach HEAD:\n{r.stderr}")
 
-            self._git("add", "-A")
-            self._git("commit", "-m", f"apply {abs_layer.name}")
+            # detach の逆操作：元ブランチへ戻す
+            self._push_undo(lambda: self._git("checkout", self.original_ref))
 
-            commit_hash = self._git("rev-parse", "HEAD").stdout.strip()
-            self.layer_commits.append(commit_hash)
+            # 2. dirty があれば snapshot commit を作る（A）
+            if self._has_dirty():
+                r = self._git("add", "-A")
+                if r.returncode != 0:
+                    raise RuntimeError(f"Failed to add dirty changes:\n{r.stderr}")
 
-        # 4. Pn−1 を base_commit として保持
-        if len(self.layer_commits) >= 2:
-            self.base_commit = self.layer_commits[-2]
-        else:
-            self.base_commit = self.return_point
+                r = self._git("commit", "-m", "session-snapshot")
+                if r.returncode != 0:
+                    raise RuntimeError(f"Failed to create session snapshot:\n{r.stderr}")
+
+                self.return_point = self._git("rev-parse", "HEAD").stdout.strip()
+
+            # snapshot の有無に関わらず、
+            # 「return_point と original_commit の差分を dirty として復元する」逆操作を積む
+            self._push_undo(lambda: self._git("reset", "--mixed", self.original_commit))
+
+            # 3. レイヤー適用（P1, P2, …, Pn）
+            abs_layers = [(self.catalog_dir / p).resolve() for p in layer_relpaths]
+
+            if abs_layers:
+                # レイヤー全体の逆操作：return_point まで hard reset
+                self._push_undo(lambda: self._git("reset", "--hard", self.return_point))
+
+            for abs_layer in abs_layers:
+                r = self._git("apply", str(abs_layer))
+                if r.returncode != 0:
+                    raise RuntimeError(f"Failed to apply layer: {abs_layer}\n{r.stderr}")
+
+                r = self._git("add", "-A")
+                if r.returncode != 0:
+                    raise RuntimeError(f"Failed to add after applying layer: {abs_layer}\n{r.stderr}")
+
+                r = self._git("commit", "-m", f"apply {abs_layer.name}")
+                if r.returncode != 0:
+                    raise RuntimeError(f"Failed to commit after applying layer: {abs_layer}\n{r.stderr}")
+
+                commit_hash = self._git("rev-parse", "HEAD").stdout.strip()
+                self.layer_commits.append(commit_hash)
+
+            # 4. Pn−1 を base_commit として保持（なければ return_point）
+            if len(self.layer_commits) >= 2:
+                self.base_commit = self.layer_commits[-2]
+            elif self.layer_commits:
+                self.base_commit = self.return_point
+            else:
+                self.base_commit = self.return_point
+
+        except Exception:
+            # どこで失敗しても、積まれている undo だけを逆順に実行
+            self._rollback()
+            raise
 
     # ----------------------------------------
     # 公開 API
@@ -58,24 +96,33 @@ class SessionFolder:
     @property
     def path(self) -> Path:
         return self.repo_root
-    
+
     def diff_from_last_layer(self) -> str:
-        r = self._git("diff", self.base_commit)
+        base = self.base_commit or self.return_point
+        r = self._git("diff", base)
         return r.stdout
 
     # ----------------------------------------
-    # セッション終了（RAII: reverse path）
+    # セッション終了（RAII: 明示的破棄）
     # ----------------------------------------
     def destroy(self):
-        # 1. レイヤー破棄 → return_point へ戻す
-        self._git("reset", "--hard", self.return_point)
+        self._rollback()
 
-        # 2. dirty の破棄 → original_commit に mixed reset
-        #    （working tree は return_point のまま → dirty が復元される）
-        self._git("reset", "--mixed", self.original_commit)
+    # ----------------------------------------
+    # RAII: undo スタック
+    # ----------------------------------------
+    def _push_undo(self, action: Callable[[], None]) -> None:
+        self._undo_stack.append(action)
 
-        # 3. detached HEAD の破棄 → 元のブランチへ戻る
-        self._git("checkout", self.original_ref)
+    def _rollback(self) -> None:
+        # 逆順に実行していく
+        while self._undo_stack:
+            action = self._undo_stack.pop()
+            try:
+                action()
+            except Exception:
+                # ロールバック中の失敗は握りつぶす（ログに出すならここ）
+                pass
 
     # ----------------------------------------
     # 内部ユーティリティ
