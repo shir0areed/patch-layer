@@ -124,24 +124,43 @@ def main():
         )
         sys.exit(1)
 
-    # --- コンポジション選択 ---
-    if compositions and len(compositions) > 1:
-        dlg = CompositionSelectDialog(compositions)
-        if dlg.exec() != QtWidgets.QDialog.Accepted:
-            sys.exit(0)
+    # --- 第二引数でコンポジション名が指定されている場合 ---
+    forced_name: Optional[str] = None
+    if len(sys.argv) > 2:
+        forced_name = sys.argv[2]
 
-        selected_name = dlg.selected()
-        if not selected_name:
+    if forced_name:
+        if forced_name in compositions:
+            # ダイアログをスキップ
+            item = (forced_name, compositions[forced_name])
+        else:
+            # 存在しない → エラー
             QtWidgets.QMessageBox.critical(
-                None, "Selection Error", "No composition selected."
+                None,
+                "Composition Error",
+                f"Composition '{forced_name}' not found in catalog."
             )
             sys.exit(1)
 
-        item = (selected_name, compositions[selected_name])
-
     else:
-        # 1 個だけの場合
-        item = next(iter(compositions.items()))
+        # --- 通常の選択処理 ---
+        if len(compositions) > 1:
+            dlg = CompositionSelectDialog(compositions)
+            if dlg.exec() != QtWidgets.QDialog.Accepted:
+                sys.exit(0)
+
+            selected_name = dlg.selected()
+            if not selected_name:
+                QtWidgets.QMessageBox.critical(
+                    None, "Selection Error", "No composition selected."
+                )
+                sys.exit(1)
+
+            item = (selected_name, compositions[selected_name])
+
+        else:
+            # 1 個だけの場合
+            item = next(iter(compositions.items()))
 
     w = MainWindow(item=item, catalog_path=catalog_path)
     w.show()
