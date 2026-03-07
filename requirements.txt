@@ -1,0 +1,2 @@
+# Requirements for minimal Patch Layer UI
+PySide6>=6.0
