@@ -4,29 +4,39 @@ This is a minimal PySide-based UI with no business logic.
 """
 
 import sys
+import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Tuple, Optional
 
 from PySide6 import QtWidgets, QtCore
 
 from catalog_parser import parse_catalog_text
 from composition_select_dialog import CompositionSelectDialog
+from session_folder import SessionFolder
 
 
 # -----------------------------
 # Main window
 # -----------------------------
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, item: tuple[str, List[str]], catalog_path: Optional[Path]):
+    def __init__(self, item: Tuple[str, List[str]], catalog_path: Optional[Path], session: SessionFolder):
         super().__init__()
 
         composition_name, layers = item
+        self.layers = layers
+        self.session = session  # ← セッションフォルダ管理クラス
 
+        # -----------------------------
+        # タイトル設定
+        # -----------------------------
         title = f"[{composition_name}]"
         if catalog_path is not None:
             title += f" {catalog_path.name}"
         self.setWindowTitle(title)
 
+        # -----------------------------
+        # ウィンドウ仕様（最小構成）
+        # -----------------------------
         self.setWindowFlags(
             QtCore.Qt.Window
             | QtCore.Qt.CustomizeWindowHint
@@ -39,6 +49,9 @@ class MainWindow(QtWidgets.QMainWindow):
         fixed_size = QtCore.QSize(font_height * multiplier, font_height * multiplier)
         self.setFixedSize(fixed_size)
 
+        # -----------------------------
+        # レイアウト
+        # -----------------------------
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
 
@@ -46,31 +59,50 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)
 
-        # --- buttons row ---
+        # -----------------------------
+        # ボタン行（Open / Write）
+        # -----------------------------
         button_row = QtWidgets.QHBoxLayout()
+
         self.open_button = QtWidgets.QPushButton("Open")
         self.open_button.clicked.connect(self.on_open)
         button_row.addWidget(self.open_button)
 
-        self.save_button = QtWidgets.QPushButton("Write")
-        self.save_button.setEnabled(False)
-        self.save_button.clicked.connect(self.on_save)
-        button_row.addWidget(self.save_button)
+        self.write_button = QtWidgets.QPushButton("Write")
+        self.write_button.setEnabled(False)
+        self.write_button.clicked.connect(self.on_write)
+        button_row.addWidget(self.write_button)
 
         layout.addLayout(button_row)
 
-        # --- list ---
+        # -----------------------------
+        # レイヤー一覧
+        # -----------------------------
         self.patch_list = QtWidgets.QListWidget()
         for layer in layers:
             self.patch_list.addItem(layer)
         layout.addWidget(self.patch_list)
 
+    # -----------------------------
+    # Open → セッションフォルダを Explorer で開く
+    # -----------------------------
     def on_open(self):
-        # TODO: implement session folder open
+        subprocess.Popen(["explorer", str(self.session.path)])
+
+    # -----------------------------
+    # Write（まだ実装しない）
+    # -----------------------------
+    def on_write(self):
+        # 差分があるかどうかは session.has_diff() で判定できる
+        # 差分がなければ何もしない、という方針で OK
         pass
 
-    def on_save(self):
-        pass
+    # -----------------------------
+    # 終了時にセッションフォルダ削除
+    # -----------------------------
+    def closeEvent(self, event):
+        self.session.destroy()
+        event.accept()
 
 
 
@@ -162,7 +194,8 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
-    w = MainWindow(item=item, catalog_path=catalog_path)
+    session = SessionFolder(catalog_path)
+    w = MainWindow(item=item, catalog_path=catalog_path, session=session)
     w.show()
     sys.exit(app.exec())
 
