@@ -46,15 +46,28 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)
 
+        # --- buttons row ---
+        button_row = QtWidgets.QHBoxLayout()
+        self.open_button = QtWidgets.QPushButton("Open")
+        self.open_button.clicked.connect(self.on_open)
+        button_row.addWidget(self.open_button)
+
         self.save_button = QtWidgets.QPushButton("Write")
         self.save_button.setEnabled(False)
         self.save_button.clicked.connect(self.on_save)
-        layout.addWidget(self.save_button)
+        button_row.addWidget(self.save_button)
 
+        layout.addLayout(button_row)
+
+        # --- list ---
         self.patch_list = QtWidgets.QListWidget()
         for layer in layers:
             self.patch_list.addItem(layer)
         layout.addWidget(self.patch_list)
+
+    def on_open(self):
+        # TODO: implement session folder open
+        pass
 
     def on_save(self):
         pass
