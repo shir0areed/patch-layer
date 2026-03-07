@@ -41,6 +41,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtCore.Qt.Window
             | QtCore.Qt.CustomizeWindowHint
             | QtCore.Qt.WindowCloseButtonHint
+            | QtCore.Qt.WindowStaysOnTopHint
         )
 
         fm = QtWidgets.QApplication.fontMetrics()
