@@ -195,7 +195,7 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
-    session = SessionFolder(catalog_path)
+    session = SessionFolder(catalog_path, item[1])
     w = MainWindow(item=item, catalog_path=catalog_path, session=session)
     w.show()
     sys.exit(app.exec())
