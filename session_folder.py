@@ -15,26 +15,24 @@ class SessionFolder:
         self.original_ref = self._git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         self.original_commit = self._git("rev-parse", "HEAD").stdout.strip()
 
-        # pre-session commit（A）
-        self.pre_session_commit: str | None = None
-
-        # レイヤー適用コミット（P1, P2, …, Pn）
-        self.layer_commits: list[str] = []
-
         # ----------------------------------------
-        # セッション開始
+        # セッション開始（RAII: forward path）
         # ----------------------------------------
 
         # 1. detached HEAD に移行
         self._git("checkout", "--detach", "HEAD")
 
-        # 2. dirty があれば pre-session commit を作る（A）
+        # 2. dirty があれば snapshot commit を作る（A）
         if self._has_dirty():
             self._git("add", "-A")
-            self._git("commit", "-m", "pre-session")
-            self.pre_session_commit = self._git("rev-parse", "HEAD").stdout.strip()
+            self._git("commit", "-m", "session-snapshot")
+            self.return_point = self._git("rev-parse", "HEAD").stdout.strip()
+        else:
+            # dirty がなければ original_commit が戻り先
+            self.return_point = self.original_commit
 
         # 3. レイヤー適用（P1, P2, …, Pn）
+        self.layer_commits: list[str] = []
         abs_layers = [(self.catalog_dir / p).resolve() for p in layer_relpaths]
 
         for abs_layer in abs_layers:
@@ -52,15 +50,13 @@ class SessionFolder:
         if len(self.layer_commits) >= 2:
             self.base_commit = self.layer_commits[-2]
         else:
-            # レイヤーが1つしかない場合は pre-session（A）または original_commit（O）
-            self.base_commit = self.pre_session_commit or self.original_commit
-    
-    # -----------------------------
+            self.base_commit = self.return_point
+
+    # ----------------------------------------
     # 公開 API
-    # -----------------------------
+    # ----------------------------------------
     @property
     def path(self) -> Path:
-        # セッションの作業対象はリポジトリのワーキングツリー
         return self.repo_root
     
     def diff_from_last_layer(self) -> str:
@@ -68,21 +64,18 @@ class SessionFolder:
         return r.stdout
 
     # ----------------------------------------
-    # セッション終了
+    # セッション終了（RAII: reverse path）
     # ----------------------------------------
     def destroy(self):
-        # セッション中の変更を破棄
-        self._git("reset", "--hard")
+        # 1. レイヤー破棄 → return_point へ戻す
+        self._git("reset", "--hard", self.return_point)
 
-        # 元のブランチに戻る
+        # 2. dirty の破棄 → original_commit に mixed reset
+        #    （working tree は return_point のまま → dirty が復元される）
+        self._git("reset", "--mixed", self.original_commit)
+
+        # 3. detached HEAD の破棄 → 元のブランチへ戻る
         self._git("checkout", self.original_ref)
-
-        # dirty があった場合だけ復元
-        if self.pre_session_commit is not None:
-            # working tree を A に戻す
-            self._git("reset", "--hard", self.pre_session_commit)
-            # HEAD と index を O に戻しつつ working tree はそのまま
-            self._git("reset", "--mixed", self.original_commit)
 
     # ----------------------------------------
     # 内部ユーティリティ
