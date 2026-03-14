@@ -103,12 +103,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # -----------------------------
     def closeEvent(self, event):
         if not self.session.can_write():
-            # そもそも書くものがない → 破棄して終了
-            self.session.destroy()
             event.accept()
             return
 
-        # Yes / No / Cancel の確認ダイアログ
         reply = QtWidgets.QMessageBox.question(
             self,
             "Confirm Exit",
@@ -118,19 +115,11 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            # Write を実行
             self.on_write()
-            # セッション破棄
-            self.session.destroy()
             event.accept()
-
         elif reply == QtWidgets.QMessageBox.No:
-            # 破棄して終了
-            self.session.destroy()
             event.accept()
-
         else:
-            # Cancel → 閉じない
             event.ignore()
 
 
@@ -224,10 +213,11 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
-    session = SessionFolder(catalog_path, item[1])
-    w = MainWindow(item=item, catalog_path=catalog_path, session=session)
-    w.show()
-    sys.exit(app.exec())
+    with SessionFolder(catalog_path, item[1]) as session:
+        w = MainWindow(item=item, catalog_path=catalog_path, session=session)
+        w.show()
+        exit_code = app.exec()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

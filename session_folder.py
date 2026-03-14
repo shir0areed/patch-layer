@@ -82,6 +82,15 @@ class SessionFolder:
             self._rollback()
             raise
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        # 例外の有無に関わらず destroy を呼ぶ
+        self.destroy()
+        # 例外を抑制しない
+        return False
+
     # ----------------------------------------
     # 公開 API
     # ----------------------------------------
@@ -97,16 +106,30 @@ class SessionFolder:
         # ワーキングツリーに差分が必要（HEAD 基準で十分）
         return self._has_dirty()
 
-    def diff_from_last_layer(self) -> str:
-        base = self._compute_base_commit()
+    def diff_merged_with_layer(self, layer_index: int) -> str:
+        """
+        任意レイヤーとワーキングツリー差分をマージした diff を返す。
+        とりあえず最上段レイヤー以外は未実装。
+        """
+
+        # レイヤーが存在しない
+        if not self.layer_commits:
+            raise RuntimeError("No layers exist; nothing to merge.")
+
+        # 最上段以外は未実装
+        if layer_index != len(self.layer_commits) - 1:
+            raise NotImplementedError("Only the topmost layer is supported for now.")
+
+        # 最上段レイヤー Pn のひとつ下のコミット Pn-1 を基準にする
+        if len(self.layer_commits) >= 2:
+            base = self.layer_commits[-2]
+        else:
+            # レイヤーが1つしかない場合は return_point が基準
+            base = self.return_point
+
+        # base → HEAD の差分が「Pn と WT のマージ結果」
         r = self._git("diff", base)
         return r.stdout
-
-    def _compute_base_commit(self) -> str:
-        if len(self.layer_commits) >= 2:
-            return self.layer_commits[-2]
-        else:
-            return self.return_point
 
     # ----------------------------------------
     # セッション終了（RAII: 明示的破棄）
