@@ -89,6 +89,14 @@ class SessionFolder:
     def path(self) -> Path:
         return self.repo_root
 
+    def can_write(self) -> bool:
+        # レイヤーが最低1つ必要
+        if len(self.layer_commits) == 0:
+            return False
+
+        # ワーキングツリーに差分が必要（HEAD 基準で十分）
+        return self._has_dirty()
+
     def diff_from_last_layer(self) -> str:
         base = self._compute_base_commit()
         r = self._git("diff", base)
