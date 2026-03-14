@@ -12,6 +12,10 @@ class SessionFolder:
         self.repo_root = self._git_repo_root(catalog_path)
         self.catalog_dir = catalog_path.parent
 
+        # ★ 追加：除外対象のため保持
+        self.catalog_path = catalog_path
+        self.layer_relpaths = layer_relpaths
+
         # 元のブランチ名とコミット（O）
         self.original_ref = self._git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         self.original_commit = self._git("rev-parse", "HEAD").stdout.strip()
@@ -103,39 +107,68 @@ class SessionFolder:
         if len(self.layer_commits) == 0:
             return False
 
-        # ワーキングツリーに差分が必要（HEAD 基準で十分）
-        return self._has_dirty()
+        # ★ 除外付き diff で判定
+        idx = len(self.layer_commits)
+        diff = self.diff_merged_with_layer(idx)
+        return bool(diff.strip())
 
     def diff_merged_with_layer(self, layer_index: int) -> str:
         """
         任意レイヤーとワーキングツリー差分をマージした diff を返す。
+        範囲外 index の場合は WT-only diff（HEAD → WT）を返す。
         とりあえず最上段レイヤー以外は未実装。
         """
 
-        # レイヤーが存在しない
-        if not self.layer_commits:
-            raise RuntimeError("No layers exist; nothing to merge.")
+        n = len(self.layer_commits)
+
+        # ----------------------------------------
+        # フォールバック：WT-only diff
+        # ----------------------------------------
+        if layer_index < 0 or layer_index >= n:
+            # HEAD → WT の差分（除外付き）
+            return self._git_diff_excluding("HEAD")
 
         # 最上段以外は未実装
-        if layer_index != len(self.layer_commits) - 1:
+        if layer_index != n - 1:
             raise NotImplementedError("Only the topmost layer is supported for now.")
 
         # 最上段レイヤー Pn のひとつ下のコミット Pn-1 を基準にする
-        if len(self.layer_commits) >= 2:
+        if n >= 2:
             base = self.layer_commits[-2]
         else:
             # レイヤーが1つしかない場合は return_point が基準
             base = self.return_point
 
-        # base → HEAD の差分が「Pn と WT のマージ結果」
-        r = self._git("diff", base)
-        return r.stdout
+        # ★ 除外付き diff
+        return self._git_diff_excluding(base)
 
     # ----------------------------------------
     # セッション終了（RAII: 明示的破棄）
     # ----------------------------------------
     def destroy(self):
         self._rollback()
+
+    # ----------------------------------------
+    # 除外パス関連
+    # ----------------------------------------
+    def _excluded_paths(self) -> list[str]:
+        paths = []
+
+        # カタログファイル
+        paths.append(str(self.catalog_path.name))
+
+        # レイヤーのパッチファイル
+        for rel in self.layer_relpaths:
+            paths.append(str(rel))
+
+        return paths
+
+    def _git_diff_excluding(self, base: str) -> str:
+        args = ["diff", base, "--", "."]
+        for p in self._excluded_paths():
+            args.append(f":(exclude){p}")
+        r = self._git(*args)
+        return r.stdout
 
     # ----------------------------------------
     # RAII: undo スタック
