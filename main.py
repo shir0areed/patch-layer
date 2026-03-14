@@ -6,6 +6,7 @@ This is a minimal PySide-based UI with no business logic.
 import sys
 import subprocess
 from pathlib import Path
+import tempfile
 from typing import Dict, List, Tuple, Optional
 
 from PySide6 import QtWidgets, QtCore
@@ -19,12 +20,13 @@ from session_folder import SessionFolder
 # Main window
 # -----------------------------
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, item: Tuple[str, List[str]], catalog_path: Optional[Path], session: SessionFolder):
+    def __init__(self, item: Tuple[str, List[str]], catalog_path: Optional[Path], session: SessionFolder, tmp_text: str):
         super().__init__()
 
         composition_name, layers = item
         self.layers = layers
         self.session = session  # ← セッションフォルダ管理クラス
+        self.tmp_text = tmp_text
 
         # -----------------------------
         # タイトル設定
@@ -94,9 +96,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # Write（まだ実装しない）
     # -----------------------------
     def on_write(self):
-        # 差分があるかどうかは session.has_diff() で判定できる
-        # 差分がなければ何もしない、という方針で OK
-        pass
+        session = self.session
+        idx = len(session.layer_commits) - 1
+        self.tmp_text = session.diff_merged_with_layer(idx)
 
     # -----------------------------
     # 終了時にセッションフォルダ削除
@@ -213,10 +215,29 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
+    # 最上段パッチのパス
+    top_idx = len(item[1]) - 1
+    patch_rel = item[1][top_idx]
+    patch_path = (catalog_path.parent / patch_rel).resolve()
+
+    # ① 元パッチの内容を読み込む
+    old_text = patch_path.read_text(encoding="utf-8") if patch_path.exists() else ""
+
+    # ② SessionFolder の with
     with SessionFolder(catalog_path, item[1]) as session:
-        w = MainWindow(item=item, catalog_path=catalog_path, session=session)
+        w = MainWindow(
+            item=item,
+            catalog_path=catalog_path,
+            session=session,
+            tmp_text=old_text,   # 初期値として渡す
+        )
         w.show()
         exit_code = app.exec()
+
+    # ③ destroy() の後に書き戻し（差分があるときだけ）
+    if w.tmp_text != old_text:
+        patch_path.write_text(w.tmp_text, encoding="utf-8")
+
     sys.exit(exit_code)
 
 
