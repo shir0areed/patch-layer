@@ -102,8 +102,31 @@ class MainWindow(QtWidgets.QMainWindow):
     # 終了時にセッションフォルダ削除
     # -----------------------------
     def closeEvent(self, event):
-        self.session.destroy()
-        event.accept()
+        # Yes / No / Cancel の確認ダイアログ
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Confirm Exit",
+            "変更を保存しますか？",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
+            QtWidgets.QMessageBox.Cancel,
+        )
+
+        if reply == QtWidgets.QMessageBox.Yes:
+            # Write を実行
+            self.on_write()
+            # セッション破棄
+            self.session.destroy()
+            event.accept()
+
+        elif reply == QtWidgets.QMessageBox.No:
+            # 破棄して終了
+            self.session.destroy()
+            event.accept()
+
+        else:
+            # Cancel → 閉じない
+            event.ignore()
+
 
 
 
