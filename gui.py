@@ -1,10 +1,12 @@
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 
 from PySide6 import QtWidgets, QtCore
 
+from composition_select_dialog import CompositionSelectDialog
 from session_folder import SessionFolder
-from folder_gui import open_folder
+from folder_gui import close_folder, open_folder
+from ui_adapter import UIAdapter
 
 # -----------------------------
 # Main window
@@ -129,3 +131,39 @@ class MainWindow(QtWidgets.QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+
+class QtUIAdapter(UIAdapter):
+    """Qt を使った UI 実装"""
+
+    def __init__(self, argv = []):
+        self.app = QtWidgets.QApplication(argv)
+
+    def show_error(self, title: str, message: str):
+        QtWidgets.QMessageBox.critical(None, title, message)
+
+    def select_composition(self, compositions: Dict[str, List[str]]) -> Optional[str]:
+        if len(compositions) <= 1:
+            return next(iter(compositions.keys()))
+
+        dlg = CompositionSelectDialog(compositions)
+        if dlg.exec() != QtWidgets.QDialog.Accepted:
+            return None
+        return dlg.selected()
+
+    def destroy_prompt(self, title: str, message: str) -> bool:
+        m = QtWidgets.QMessageBox()
+        m.setIcon(QtWidgets.QMessageBox.Warning)
+        m.setWindowTitle(title)
+        m.setText(message)
+        m.setStandardButtons(QtWidgets.QMessageBox.Retry | QtWidgets.QMessageBox.Cancel)
+        ret = m.exec()
+        return ret == QtWidgets.QMessageBox.Retry
+
+    def run_main_window(self, item, catalog_path, session) -> int:
+        open_folder(session.path)
+        w = MainWindow(item=item, catalog_path=catalog_path, session=session)
+        w.show()
+        exit_code = QtWidgets.QApplication.instance().exec()
+        close_folder(session.path)
+        return exit_code

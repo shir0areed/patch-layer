@@ -5,10 +5,8 @@ from typing import Dict, List, Optional
 from PySide6 import QtWidgets
 
 from catalog_parser import parse_catalog_text
-from composition_select_dialog import CompositionSelectDialog
 from session_folder import SessionFolder
-from gui import MainWindow
-from folder_gui import open_folder, close_folder
+from gui import QtUIAdapter
 
 
 # -----------------------------
@@ -36,24 +34,11 @@ def _load_compositions_from_file(path: Path) -> Dict[str, List[str]]:
     return compositions
 
 
-def _qt_destroy_prompt(title: str, message: str) -> bool:
-    from PySide6.QtWidgets import QMessageBox
-
-    m = QMessageBox()
-    m.setIcon(QMessageBox.Warning)
-    m.setWindowTitle(title)
-    m.setText(message)
-    m.setStandardButtons(QMessageBox.Retry | QMessageBox.Cancel)
-    ret = m.exec()
-
-    return ret == QMessageBox.Retry
-
-
 # -----------------------------
 # Application entry
 # -----------------------------
 def main():
-    app = QtWidgets.QApplication(sys.argv)
+    ui = QtUIAdapter()
 
     compositions: Optional[Dict[str, List[str]]] = None
     catalog_path: Optional[Path] = None
@@ -63,15 +48,11 @@ def main():
         try:
             compositions = _load_compositions_from_file(catalog_path)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                None, "Catalog Error", f"Failed to parse catalog:\n{e}"
-            )
+            ui.show_error("Catalog Error", f"Failed to parse catalog:\n{e}")
             sys.exit(1)
 
     if compositions is not None and len(compositions) == 0:
-        QtWidgets.QMessageBox.critical(
-            None, "Catalog Error", "No compositions found in the catalog."
-        )
+        ui.show_error("Catalog Error", "No compositions found in the catalog.")
         sys.exit(1)
 
     # --- 第二引数でコンポジション名が指定されている場合 ---
@@ -85,8 +66,7 @@ def main():
             item = (forced_name, compositions[forced_name])
         else:
             # 存在しない → エラー
-            QtWidgets.QMessageBox.critical(
-                None,
+            ui.show_error(
                 "Composition Error",
                 f"Composition '{forced_name}' not found in catalog."
             )
@@ -94,34 +74,13 @@ def main():
 
     else:
         # --- 通常の選択処理 ---
-        if len(compositions) > 1:
-            dlg = CompositionSelectDialog(compositions)
-            if dlg.exec() != QtWidgets.QDialog.Accepted:
-                sys.exit(0)
+        selected = ui.select_composition(compositions)
+        if not selected:
+            sys.exit(0)
+        item = (selected, compositions[selected])
 
-            selected_name = dlg.selected()
-            if not selected_name:
-                QtWidgets.QMessageBox.critical(
-                    None, "Selection Error", "No composition selected."
-                )
-                sys.exit(1)
-
-            item = (selected_name, compositions[selected_name])
-
-        else:
-            # 1 個だけの場合
-            item = next(iter(compositions.items()))
-
-    with SessionFolder(catalog_path, item[1], on_destroy_prompt=_qt_destroy_prompt) as session:
-        open_folder(session.path)
-        w = MainWindow(
-            item=item,
-            catalog_path=catalog_path,
-            session=session,
-        )
-        w.show()
-        exit_code = app.exec()
-        close_folder(session.path)
+    with SessionFolder(catalog_path, item[1], on_destroy_prompt=ui.destroy_prompt) as session:
+        exit_code = ui.run_main_window(item, catalog_path, session)
 
     sys.exit(exit_code)
 
