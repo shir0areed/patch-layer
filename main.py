@@ -97,12 +97,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.session.can_write():
             return
 
-        self.write()
+        self.write(len(self.layers) - 1)
         self.session.reapply_layers()
 
-    def write(self):
+    def write(self, idx):
         session = self.session
-        idx = len(session.layer_commits) - 1
         patch_rel = self.layers[idx]
         patch_path = (self.catalog_path.parent / patch_rel).resolve()
         patch_path.write_text(session.diff_merged_with_layer(idx), encoding="utf-8")
@@ -124,7 +123,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            self.write()
+            self.write(len(self.layers) - 1)
             event.accept()
         elif reply == QtWidgets.QMessageBox.No:
             event.accept()
