@@ -19,13 +19,13 @@ from folder_gui import open_folder, close_folder
 # Main window
 # -----------------------------
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, item: Tuple[str, List[str]], catalog_path: Optional[Path], session: SessionFolder, tmp_text: str):
+    def __init__(self, item: Tuple[str, List[str]], catalog_path: Optional[Path], session: SessionFolder):
         super().__init__()
 
         composition_name, layers = item
         self.layers = layers
+        self.catalog_path = catalog_path
         self.session = session  # ← セッションフォルダ管理クラス
-        self.tmp_text = tmp_text
 
         # -----------------------------
         # タイトル設定
@@ -71,7 +71,6 @@ class MainWindow(QtWidgets.QMainWindow):
         button_row.addWidget(self.open_button)
 
         self.write_button = QtWidgets.QPushButton("Write")
-        self.write_button.setEnabled(False)
         self.write_button.clicked.connect(self.on_write)
         button_row.addWidget(self.write_button)
 
@@ -92,7 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         open_folder(self.session.path)
 
     # -----------------------------
-    # Write（まだ実装しない）
+    # Write
     # -----------------------------
     def on_write(self):
         pass
@@ -100,7 +99,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def write(self):
         session = self.session
         idx = len(session.layer_commits) - 1
-        self.tmp_text = session.diff_merged_with_layer(idx)
+        patch_rel = self.layers[idx]
+        patch_path = (self.catalog_path.parent / patch_rel).resolve()
+        patch_path.write_text(session.diff_merged_with_layer(idx), encoding="utf-8")
 
     # -----------------------------
     # 終了時にセッションフォルダ削除
@@ -217,30 +218,16 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
-    # 最上段パッチのパス
-    top_idx = len(item[1]) - 1
-    patch_rel = item[1][top_idx]
-    patch_path = (catalog_path.parent / patch_rel).resolve()
-
-    # ① 元パッチの内容を読み込む
-    old_text = patch_path.read_text(encoding="utf-8") if patch_path.exists() else ""
-
-    # ② SessionFolder の with
     with SessionFolder(catalog_path, item[1]) as session:
         open_folder(session.path)
         w = MainWindow(
             item=item,
             catalog_path=catalog_path,
             session=session,
-            tmp_text=old_text,   # 初期値として渡す
         )
         w.show()
         exit_code = app.exec()
         close_folder(session.path)
-
-    # ③ destroy() の後に書き戻し（差分があるときだけ）
-    if w.tmp_text != old_text:
-        patch_path.write_text(w.tmp_text, encoding="utf-8")
 
     sys.exit(exit_code)
 
