@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "patch-layer"
+version = "0.0.1"
+dependencies = [
+    "PySide6>=6.0",
+    "pywin32; platform_system == 'Windows'",
+]
