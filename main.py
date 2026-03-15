@@ -4,7 +4,6 @@ This is a minimal PySide-based UI with no business logic.
 """
 
 import sys
-import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
