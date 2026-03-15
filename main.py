@@ -96,6 +96,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # Write（まだ実装しない）
     # -----------------------------
     def on_write(self):
+        pass
+
+    def write(self):
         session = self.session
         idx = len(session.layer_commits) - 1
         self.tmp_text = session.diff_merged_with_layer(idx)
@@ -117,7 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            self.on_write()
+            self.write()
             event.accept()
         elif reply == QtWidgets.QMessageBox.No:
             event.accept()
