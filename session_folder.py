@@ -104,7 +104,7 @@ class SessionFolder:
         # フォールバック：WT-only diff
         # ----------------------------------------
         if layer_index < 0 or layer_index >= n:
-            return self._git("diff", "HEAD").stdout
+            return self._diff_with_intent("HEAD")
 
         # 最上段以外は未実装
         if layer_index != n - 1:
@@ -117,7 +117,7 @@ class SessionFolder:
             # レイヤーが1つしかない場合は first commit が基準
             base = "HEAD~1"
 
-        return self._git("diff", base).stdout
+        return self._diff_with_intent(base)
 
     # ----------------------------------------
     # セッション終了
@@ -176,3 +176,12 @@ class SessionFolder:
             capture_output=True,
             check=False,
         )
+
+    def _diff_with_intent(self, base: str) -> str:
+        # untracked を intent-to-add にする
+        self._git("add", "-N", ".")
+
+        # diff を取る
+        diff = self._git("diff", base).stdout
+
+        return diff
