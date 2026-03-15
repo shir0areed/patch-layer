@@ -123,9 +123,28 @@ class SessionFolder:
     # セッション終了
     # ----------------------------------------
     def destroy(self):
-        if self._tmpdir is not None:
-            self._tmpdir.cleanup()
-            self._tmpdir = None
+        from PySide6.QtWidgets import QMessageBox
+        if self._tmpdir is None:
+            return
+
+        while True:
+            try:
+                self._tmpdir.cleanup()
+                break
+            except Exception as e:
+                m = QMessageBox()
+                m.setIcon(QMessageBox.Warning)
+                m.setWindowTitle("セッションフォルダの削除に失敗しました")
+                m.setText(f"セッションフォルダを削除できませんでした。\n\n{e}")
+                m.setInformativeText("フォルダやファイルが開かれていないか確認してください。")
+                m.setStandardButtons(QMessageBox.Retry | QMessageBox.Cancel)
+                ret = m.exec()
+
+                if ret == QMessageBox.Cancel:
+                    break
+
+        self._tmpdir = None
+
 
     # ----------------------------------------
     # 内部ユーティリティ
