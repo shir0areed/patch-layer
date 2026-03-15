@@ -11,7 +11,7 @@ class SessionFolder:
         # ----------------------------------------
         # 基本情報
         # ----------------------------------------
-        self.catalog_dir = catalog_path.parent
+        self.catalog_dir = catalog_path.parent.resolve()
         self.catalog_path = catalog_path
         self.layer_relpaths = layer_relpaths
         self.on_destroy_prompt = on_destroy_prompt  # Optional[Callable[[str, str], bool]]  # (title, message) → retry?
