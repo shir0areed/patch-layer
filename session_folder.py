@@ -116,6 +116,30 @@ class SessionFolder:
 
         return self._diff_with_intent(base)
 
+    def reapply_layers(self):
+        """
+        パッチ適用をやり直す。
+        今の session_root は壊さず、新しい SessionFolder を作って
+        その HEAD を fetch→reset で取り込む。
+        """
+
+        # 1. 新しい SessionFolder を with 文で作る
+        with SessionFolder(self.catalog_path, self.layer_relpaths) as new:
+
+            # 2. 今の repo に new の HEAD を fetch
+            r = self._git("fetch", str(new.session_root), "HEAD")
+            if r.returncode != 0:
+                raise RuntimeError(f"fetch failed:\n{r.stderr}")
+
+            # 3. 今の repo を new の HEAD に置き換える
+            r = self._git("reset", "--hard", "FETCH_HEAD")
+            if r.returncode != 0:
+                raise RuntimeError(f"reset failed:\n{r.stderr}")
+
+            # 4. layer_commits と first_commit を new のものに置き換える
+            self.layer_commits = new.layer_commits
+            self.first_commit = new.first_commit
+
     # ----------------------------------------
     # セッション終了
     # ----------------------------------------
