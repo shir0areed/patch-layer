@@ -2,8 +2,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PySide6 import QtWidgets
-
 from catalog_parser import parse_catalog_text
 from session_folder import SessionFolder
 from gui import QtUIAdapter
