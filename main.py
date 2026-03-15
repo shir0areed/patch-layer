@@ -57,6 +57,9 @@ def main():
             except Exception as e:
                 ui.show_error("Catalog Error", f"Failed to parse catalog:\n{e}")
                 sys.exit(1)
+        else:
+            ui.show_error("Usage Error", "Please provide the path to the catalog file as an argument.")
+            sys.exit(1)
 
         if compositions is not None and len(compositions) == 0:
             ui.show_error("Catalog Error", "No compositions found in the catalog.")
