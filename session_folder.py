@@ -131,7 +131,7 @@ class SessionFolder:
         """
 
         # 1. 新しい SessionFolder を with 文で作る
-        with SessionFolder(self.catalog_path, self.layer_relpaths) as new:
+        with SessionFolder(self.catalog_path, self.layer_relpaths, None) as new:
 
             # 2. 今の repo に new の HEAD を fetch
             r = self._git("fetch", str(new.session_root), "HEAD")
