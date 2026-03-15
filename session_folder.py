@@ -155,11 +155,14 @@ class SessionFolder:
         paths = []
 
         # カタログファイル
-        paths.append(str(self.catalog_path.name))
+        rel_catalog = self.catalog_path.resolve().relative_to(self.repo_root)
+        paths.append(str(rel_catalog))
 
         # レイヤーのパッチファイル
         for rel in self.layer_relpaths:
-            paths.append(str(rel))
+            abs_layer = (self.catalog_dir / rel).resolve()
+            rel_layer = abs_layer.relative_to(self.repo_root)
+            paths.append(str(rel_layer))
 
         return paths
 
