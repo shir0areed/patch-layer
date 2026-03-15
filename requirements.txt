@@ -1,2 +1,3 @@
 # Requirements for minimal Patch Layer UI
 PySide6>=6.0
+pywin32; platform_system == "Windows"

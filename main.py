@@ -6,7 +6,6 @@ This is a minimal PySide-based UI with no business logic.
 import sys
 import subprocess
 from pathlib import Path
-import tempfile
 from typing import Dict, List, Tuple, Optional
 
 from PySide6 import QtWidgets, QtCore
@@ -14,6 +13,7 @@ from PySide6 import QtWidgets, QtCore
 from catalog_parser import parse_catalog_text
 from composition_select_dialog import CompositionSelectDialog
 from session_folder import SessionFolder
+from folder_gui import open_folder, close_folder
 
 
 # -----------------------------
@@ -90,7 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # Open → セッションフォルダを Explorer で開く
     # -----------------------------
     def on_open(self):
-        subprocess.Popen(["explorer", str(self.session.path)])
+        open_folder(self.session.path)
 
     # -----------------------------
     # Write（まだ実装しない）
@@ -228,6 +228,7 @@ def main():
 
     # ② SessionFolder の with
     with SessionFolder(catalog_path, item[1]) as session:
+        open_folder(session.path)
         w = MainWindow(
             item=item,
             catalog_path=catalog_path,
@@ -236,6 +237,7 @@ def main():
         )
         w.show()
         exit_code = app.exec()
+        close_folder(session.path)
 
     # ③ destroy() の後に書き戻し（差分があるときだけ）
     if w.tmp_text != old_text:
