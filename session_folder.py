@@ -42,6 +42,7 @@ class SessionFolder:
             r = self._git("commit", "-m", "first commit")
             if r.returncode != 0:
                 raise RuntimeError(f"Failed to create first commit:\n{r.stderr}")
+            self.first_commit = self._git("rev-parse", "HEAD").stdout.strip()
 
             # 3. レイヤー適用（P1, P2, …, Pn）
             abs_layers = [(self.catalog_dir / p).resolve() for p in layer_relpaths]
@@ -103,19 +104,15 @@ class SessionFolder:
         # ----------------------------------------
         # フォールバック：WT-only diff
         # ----------------------------------------
-        if layer_index < 0 or layer_index >= n:
-            return self._diff_with_intent("HEAD")
+        if layer_index < 0 or layer_index > n:
+            layer_index = n
 
-        # 最上段以外は未実装
-        if layer_index != n - 1:
-            raise NotImplementedError("Only the topmost layer is supported for now.")
+        # 0〜n-2 は未実装
+        if 0 <= layer_index <= n-2:
+            raise NotImplementedError("Only the topmost layer and WT-only diff are supported for now.")
 
-        # 最上段レイヤー Pn のひとつ下のコミット Pn-1 を基準にする
-        if n >= 2:
-            base = self.layer_commits[-2]
-        else:
-            # レイヤーが1つしかない場合は first commit が基準
-            base = "HEAD~1"
+        # base を決定
+        base = self._base_commits()[layer_index]
 
         return self._diff_with_intent(base)
 
@@ -167,6 +164,21 @@ class SessionFolder:
             return ignored
 
         shutil.copytree(src, dst, ignore=ignore)
+
+    def _base_commits(self) -> list[str]:
+        """
+        レイヤー i の diff 基準点を返すための配列。
+        長さは n+1。
+        """
+        commits = [self.first_commit]  # index 0
+
+        # P1〜Pn-1 の基準点
+        commits.extend(self.layer_commits[:-1])
+
+        # WT-only diff 用（Pn）
+        commits.append(self.layer_commits[-1])
+
+        return commits
 
     def _git(self, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
