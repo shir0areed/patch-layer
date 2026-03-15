@@ -7,13 +7,14 @@ from typing import List
 
 
 class SessionFolder:
-    def __init__(self, catalog_path: Path, layer_relpaths: list[str]):
+    def __init__(self, catalog_path: Path, layer_relpaths: list[str], on_destroy_prompt):
         # ----------------------------------------
         # 基本情報
         # ----------------------------------------
         self.catalog_dir = catalog_path.parent
         self.catalog_path = catalog_path
         self.layer_relpaths = layer_relpaths
+        self.on_destroy_prompt = on_destroy_prompt  # Optional[Callable[[str, str], bool]]  # (title, message) → retry?
 
         # セッション用一時フォルダ
         self._tmpdir = tempfile.TemporaryDirectory()
@@ -150,7 +151,6 @@ class SessionFolder:
     # セッション終了
     # ----------------------------------------
     def destroy(self):
-        from PySide6.QtWidgets import QMessageBox
         if self._tmpdir is None:
             return
 
@@ -159,15 +159,16 @@ class SessionFolder:
                 self._tmpdir.cleanup()
                 break
             except Exception as e:
-                m = QMessageBox()
-                m.setIcon(QMessageBox.Warning)
-                m.setWindowTitle("セッションフォルダの削除に失敗しました")
-                m.setText(f"セッションフォルダを削除できませんでした。\n\n{e}")
-                m.setInformativeText("フォルダやファイルが開かれていないか確認してください。")
-                m.setStandardButtons(QMessageBox.Retry | QMessageBox.Cancel)
-                ret = m.exec()
+                if self.on_destroy_prompt is not None:
+                    retry = self.on_destroy_prompt(
+                        "セッションフォルダの削除に失敗しました",
+                        f"セッションフォルダを削除できませんでした。\n\n{e}\n\n"
+                        "フォルダやファイルが開かれていないか確認してください。"
+                    )
+                else:
+                    retry = False  # コールバックが無ければ Cancel 相当
 
-                if ret == QMessageBox.Cancel:
+                if not retry:
                     break
 
         self._tmpdir = None

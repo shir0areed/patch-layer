@@ -36,6 +36,19 @@ def _load_compositions_from_file(path: Path) -> Dict[str, List[str]]:
     return compositions
 
 
+def _qt_destroy_prompt(title: str, message: str) -> bool:
+    from PySide6.QtWidgets import QMessageBox
+
+    m = QMessageBox()
+    m.setIcon(QMessageBox.Warning)
+    m.setWindowTitle(title)
+    m.setText(message)
+    m.setStandardButtons(QMessageBox.Retry | QMessageBox.Cancel)
+    ret = m.exec()
+
+    return ret == QMessageBox.Retry
+
+
 # -----------------------------
 # Application entry
 # -----------------------------
@@ -99,7 +112,7 @@ def main():
             # 1 個だけの場合
             item = next(iter(compositions.items()))
 
-    with SessionFolder(catalog_path, item[1]) as session:
+    with SessionFolder(catalog_path, item[1], on_destroy_prompt=_qt_destroy_prompt) as session:
         open_folder(session.path)
         w = MainWindow(
             item=item,
