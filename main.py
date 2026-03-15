@@ -97,6 +97,17 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.session.can_write():
             return
 
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Confirm Write",
+            "パッチを更新してレイヤーを再適用します。\nよろしいですか？",
+            QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
+            QtWidgets.QMessageBox.Cancel,
+        )
+
+        if reply != QtWidgets.QMessageBox.Ok:
+            return
+
         self.session.write(len(self.layers) - 1)
         self.session.reapply_layers()
 
