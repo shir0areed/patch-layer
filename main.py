@@ -104,7 +104,8 @@ class MainWindow(QtWidgets.QMainWindow):
         session = self.session
         patch_rel = self.layers[idx]
         patch_path = (self.catalog_path.parent / patch_rel).resolve()
-        patch_path.write_text(session.diff_merged_with_layer(idx), encoding="utf-8")
+        diff = session.diff_merged_with_layer(idx)
+        patch_path.write_text(diff, encoding="utf-8")
 
     # -----------------------------
     # 終了時にセッションフォルダ削除
