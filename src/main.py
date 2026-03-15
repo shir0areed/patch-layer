@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from catalog_parser import parse_catalog_text
-from session_folder import SessionFolder
+from .catalog_parser import parse_catalog_text
+from .session_folder import SessionFolder
 
 
 # -----------------------------
@@ -37,10 +37,10 @@ def _load_compositions_from_file(path: Path) -> Dict[str, List[str]]:
 def main():
     try:
         try:
-            from gui import QtUIAdapter
+            from .gui import QtUIAdapter
             ui = QtUIAdapter()
         except:
-            from cli import CLIUIAdapter
+            from .cli import CLIUIAdapter
             ui = CLIUIAdapter()
     except Exception as e:
         print(f"Failed to initialize UI:\n{e}")

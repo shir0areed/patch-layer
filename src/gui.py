@@ -3,10 +3,10 @@ from typing import Dict, List, Tuple, Optional
 
 from PySide6 import QtWidgets, QtCore
 
-from composition_select_dialog import CompositionSelectDialog
-from session_folder import SessionFolder
-from folder_gui import close_folder, open_folder
-from ui_adapter import UIAdapter
+from .composition_select_dialog import CompositionSelectDialog
+from .session_folder import SessionFolder
+from .folder_gui import close_folder, open_folder
+from .ui_adapter import UIAdapter
 
 # -----------------------------
 # Main window

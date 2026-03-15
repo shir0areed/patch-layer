@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from ui_adapter import UIAdapter
+from .ui_adapter import UIAdapter
 
 
 class CLIUIAdapter(UIAdapter):
