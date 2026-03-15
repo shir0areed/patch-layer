@@ -47,7 +47,7 @@ class SessionFolder:
             abs_layers = [(self.catalog_dir / p).resolve() for p in layer_relpaths]
 
             for abs_layer in abs_layers:
-                r = self._git("apply", str(abs_layer))
+                r = self._git("apply", str(abs_layer), "--allow-empty")
                 if r.returncode != 0:
                     raise RuntimeError(f"Failed to apply layer: {abs_layer}\n{r.stderr}")
 
@@ -55,7 +55,7 @@ class SessionFolder:
                 if r.returncode != 0:
                     raise RuntimeError(f"Failed to add after applying layer: {abs_layer}\n{r.stderr}")
 
-                r = self._git("commit", "-m", f"apply {abs_layer.name}")
+                r = self._git("commit", "-m", f"apply {abs_layer.name}", "--allow-empty")
                 if r.returncode != 0:
                     raise RuntimeError(f"Failed to commit after applying layer: {abs_layer}\n{r.stderr}")
 
