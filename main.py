@@ -94,7 +94,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # Write
     # -----------------------------
     def on_write(self):
-        pass
+        if not self.session.can_write():
+            return
+
+        self.write()
+        self.session.reapply_layers()
 
     def write(self):
         session = self.session
