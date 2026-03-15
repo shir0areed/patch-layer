@@ -97,10 +97,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.session.can_write():
             return
 
+        write_idx = len(self.layers) - 1
+
         reply = QtWidgets.QMessageBox.question(
             self,
             "Confirm Write",
-            "パッチを更新してレイヤーを再適用します。\nよろしいですか？",
+            f"{self.layers[write_idx]} を更新してレイヤーを再適用します。\nよろしいですか？",
             QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel,
             QtWidgets.QMessageBox.Cancel,
         )
@@ -108,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if reply != QtWidgets.QMessageBox.Ok:
             return
 
-        self.session.write(len(self.layers) - 1)
+        self.session.write(write_idx)
         self.session.reapply_layers()
 
     # -----------------------------
@@ -119,16 +121,18 @@ class MainWindow(QtWidgets.QMainWindow):
             event.accept()
             return
 
+        write_idx = len(self.layers) - 1
+
         reply = QtWidgets.QMessageBox.question(
             self,
             "Confirm Exit",
-            "変更を保存しますか？",
+            f"変更を{self.layers[write_idx]}に保存しますか？",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
             QtWidgets.QMessageBox.Cancel,
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            self.session.write(len(self.layers) - 1)
+            self.session.write(write_idx)
             event.accept()
         elif reply == QtWidgets.QMessageBox.No:
             event.accept()
