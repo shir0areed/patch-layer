@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 
 from catalog_parser import parse_catalog_text
 from session_folder import SessionFolder
-from gui import QtUIAdapter
 
 
 # -----------------------------
@@ -36,7 +35,12 @@ def _load_compositions_from_file(path: Path) -> Dict[str, List[str]]:
 # Application entry
 # -----------------------------
 def main():
-    ui = QtUIAdapter()
+    try:
+        from gui import QtUIAdapter
+        ui = QtUIAdapter()
+    except:
+        from cli import CLIUIAdapter
+        ui = CLIUIAdapter()
 
     compositions: Optional[Dict[str, List[str]]] = None
     catalog_path: Optional[Path] = None
