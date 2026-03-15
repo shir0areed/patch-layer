@@ -97,15 +97,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.session.can_write():
             return
 
-        self.write(len(self.layers) - 1)
+        self.session.write(len(self.layers) - 1)
         self.session.reapply_layers()
-
-    def write(self, idx):
-        session = self.session
-        patch_rel = self.layers[idx]
-        patch_path = (self.catalog_path.parent / patch_rel).resolve()
-        diff = session.diff_merged_with_layer(idx)
-        patch_path.write_text(diff, encoding="utf-8")
 
     # -----------------------------
     # 終了時にセッションフォルダ削除
@@ -124,7 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            self.write(len(self.layers) - 1)
+            self.session.write(len(self.layers) - 1)
             event.accept()
         elif reply == QtWidgets.QMessageBox.No:
             event.accept()

@@ -116,6 +116,12 @@ class SessionFolder:
 
         return self._diff_with_intent(base)
 
+    def write(self, idx):
+        patch_rel = self.layer_relpaths[idx]
+        patch_path = (self.catalog_path.parent / patch_rel).resolve()
+        diff = self.diff_merged_with_layer(idx)
+        patch_path.write_text(diff, encoding="utf-8")
+
     def reapply_layers(self):
         """
         パッチ適用をやり直す。
